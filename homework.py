@@ -5,7 +5,8 @@ import time
 from contextlib import suppress
 from http import HTTPStatus
 
-import requests, telebot
+import requests
+import telebot
 from dotenv import load_dotenv
 from telebot import TeleBot
 
