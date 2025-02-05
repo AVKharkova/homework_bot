@@ -5,7 +5,7 @@ import time
 from contextlib import suppress
 from http import HTTPStatus
 
-import requests
+import requests, telebot
 from dotenv import load_dotenv
 from telebot import TeleBot
 
@@ -160,17 +160,16 @@ def main():
 
             homework = homeworks[0]
             message_text = parse_status(homework)
-
             if message_text != last_sent_message:
-                try:
-                    send_message(bot, message_text)
-                    last_sent_message = message_text
-                except telebot.apihelper.ApiException as tg_error:
-                    logger.exception(
-                        f'Ошибка отправки сообщения в Telegram: {tg_error}'
-                    )
+                send_message(bot, message_text)
+                last_sent_message = message_text
 
             timestamp = response.get('current_date', timestamp)
+
+        except telebot.apihelper.ApiException as tg_error:
+            logger.exception(
+                f'Ошибка при отправке сообщения в Telegram: {tg_error}'
+            )
 
         except ConnectionError as conn_error:
             logger.exception(f'Сбой в сети или ошибка запроса: {conn_error}')
