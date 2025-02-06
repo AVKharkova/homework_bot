@@ -74,7 +74,7 @@ def get_api_answer(timestamp):
     """Запрос к API Практикума."""
     logger.debug(
         f'Отправляем запрос к {ENDPOINT}, '
-        f'headers={HEADERS}, params={{"from_date": {timestamp}}}'
+        f'params={{"from_date": {timestamp}}}'
     )
     try:
         response = requests.get(
@@ -104,7 +104,7 @@ def check_response(response):
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         raise TypeError(
-            f'Значение по ключу "homeworks" не является списком. '
+            'Значение по ключу "homeworks" не является списком. '
             f'Получен тип: {type(homeworks)}'
         )
 
@@ -167,9 +167,6 @@ def main():
             logger.exception(
                 f'Ошибка при отправке сообщения в Telegram: {tg_error}'
             )
-
-        except (HTTPStatusError) as api_error:
-            logger.exception(f'Ошибка API: {api_error}')
 
         except Exception as error:
             error_message = f'Сбой в работе программы: {error}'
