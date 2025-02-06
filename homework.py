@@ -11,11 +11,8 @@ from dotenv import load_dotenv
 from telebot import TeleBot
 
 from exceptions import (
-    BadRequestError,
     HTTPStatusError,
-    MissingTokenError,
-    NotFoundError,
-    ServerError,
+    MissingTokenError
 )
 
 # Настраиваем логи
@@ -58,10 +55,12 @@ def check_tokens():
     tokens_to_check = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
     missing_tokens = [name for name in tokens_to_check if not globals()[name]]
     if missing_tokens:
-        logger.critical(f'Отсутствуют переменные окружения: {missing_tokens}')
-        raise MissingTokenError(
-            f'Бот остановлен, отсутствуют токены: {missing_tokens}'
+        missing_tokens_str = (
+            'Бот остановлен. Отсутствуют токены: '
+            f"{', '.join(missing_tokens)}"
         )
+        logger.critical(missing_tokens_str)
+        raise MissingTokenError(missing_tokens_str)
 
 
 def send_message(bot, message):
@@ -84,12 +83,6 @@ def get_api_answer(timestamp):
     except requests.RequestException as error:
         raise ConnectionError(f'Ошибка при запросе к API: {error}') from error
 
-    if response.status_code == HTTPStatus.BAD_REQUEST:
-        raise BadRequestError('Сервер вернул статус 400 (Bad Request)')
-    if response.status_code == HTTPStatus.NOT_FOUND:
-        raise NotFoundError('Сервер вернул статус 404 (Not Found)')
-    if response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR:
-        raise ServerError('Сервер вернул статус 500 (Internal Server Error)')
     if response.status_code != HTTPStatus.OK:
         raise HTTPStatusError(
             f'Сервер вернул статус {response.status_code}'
@@ -125,7 +118,8 @@ def parse_status(homework):
     missing_keys = [key for key in ('homework_name', 'status')
                     if key not in homework]
     if missing_keys:
-        raise KeyError(f'В ответе отсутствуют ключи: {missing_keys}')
+        missing_keys_str = ', '.join(missing_keys)
+        raise KeyError(f'В ответе отсутствуют ключи: {missing_keys_str}')
 
     homework_name = homework['homework_name']
     homework_status = homework['status']
@@ -145,8 +139,7 @@ def main():
     bot = TeleBot(TELEGRAM_TOKEN)
 
     timestamp = int(time.time())
-    last_error_message = ''
-    last_sent_message = ''
+    last_message = ''
 
     logger.info('Бот запущен и готов к работе.')
 
@@ -161,31 +154,30 @@ def main():
 
             homework = homeworks[0]
             message_text = parse_status(homework)
-            if message_text != last_sent_message:
+            if message_text != last_message:
                 send_message(bot, message_text)
-                last_sent_message = message_text
+                last_message = message_text
 
             timestamp = response.get('current_date', timestamp)
 
-        except telebot.apihelper.ApiException as tg_error:
+        except (
+            telebot.apihelper.ApiException,
+            requests.RequestException
+        ) as tg_error:
             logger.exception(
                 f'Ошибка при отправке сообщения в Telegram: {tg_error}'
             )
 
-        except ConnectionError as conn_error:
-            logger.exception(f'Сбой в сети или ошибка запроса: {conn_error}')
-
-        except (BadRequestError, NotFoundError,
-                ServerError, HTTPStatusError) as api_error:
+        except (HTTPStatusError) as api_error:
             logger.exception(f'Ошибка API: {api_error}')
 
         except Exception as error:
-            logger.exception(f'Сбой в работе программы: {error}')
             error_message = f'Сбой в работе программы: {error}'
-            if error_message != last_error_message:
+            logger.exception(error_message)
+            if error_message != last_message:
                 with suppress(telebot.apihelper.ApiException):
                     send_message(bot, error_message)
-                last_error_message = error_message
+                    last_message = error_message
 
         finally:
             time.sleep(RETRY_PERIOD)
